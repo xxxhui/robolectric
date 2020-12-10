@@ -24,13 +24,24 @@ import org.robolectric.util.reflector.ForType;
 @Implements(SpeechRecognizer.class)
 public class ShadowSpeechRecognizer {
 
-  @RealObject SpeechRecognizer realObject;
+  @RealObject SpeechRecognizer realSpeechRecognizer;
   private RecognitionListener recognitionListener;
+
+  /**
+   * Returns the latest SpeechRecognizer. This method can only be called after {@link
+   * SpeechRecognizer#setRecognitionListener()} is called, which will call {@link
+   * ShadowSpeechRecognizer#handleChangeListener()}.
+   */
+  public static SpeechRecognizer getLatestSpeechRecognizer() {
+    ShadowApplication shadowApplication = ShadowApplication.getInstance();
+    return shadowApplication.getLatestSpeechRecognizer();
+  }
 
   @Implementation
   protected void startListening(Intent recognizerIntent) {
     // simulate the response to the real startListening's bindService call
-    SpeechRecognizerReflector reflector = reflector(SpeechRecognizerReflector.class, realObject);
+    SpeechRecognizerReflector reflector =
+        reflector(SpeechRecognizerReflector.class, realSpeechRecognizer);
     Binder recognitionServiceBinder = new Binder();
     recognitionServiceBinder.attachInterface(
         ReflectionHelpers.createNullProxy(IRecognitionService.class),
@@ -50,12 +61,19 @@ public class ShadowSpeechRecognizer {
     ShadowContextWrapper.getShadowInstrumentation()
         .setComponentNameAndServiceForBindServiceForIntent(
             serviceIntent, reflector.getServiceComponent(), recognitionServiceBinder);
-    directlyOn(realObject, SpeechRecognizer.class).startListening(recognizerIntent);
+    directlyOn(realSpeechRecognizer, SpeechRecognizer.class).startListening(recognizerIntent);
   }
 
-  /** Handles changing the listener and allows access to the internal listener to trigger events. */
+  /**
+   * Handles changing the listener and allows access to the internal listener to trigger events and
+   * sets the latest SpeechRecognizer.
+   */
   @Implementation
   protected void handleChangeListener(RecognitionListener listener) {
+    // Sets the latest SpeechRecognizer.
+    ShadowApplication shadowApplication = ShadowApplication.getInstance();
+    shadowApplication.setLatestSpeechRecognizer(realSpeechRecognizer);
+
     recognitionListener = listener;
   }
 

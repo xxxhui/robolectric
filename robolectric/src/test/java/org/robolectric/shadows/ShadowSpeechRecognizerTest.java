@@ -104,6 +104,18 @@ public class ShadowSpeechRecognizerTest {
     assertNoErrorLogs();
   }
 
+  @Test
+  public void getLatestSpeechRecognizer() {
+    SpeechRecognizer newSpeechRecognizer =
+        SpeechRecognizer.createSpeechRecognizer(ApplicationProvider.getApplicationContext());
+    assertThat(ShadowSpeechRecognizer.getLatestSpeechRecognizer()).isNull();
+    newSpeechRecognizer.setRecognitionListener(listener);
+    newSpeechRecognizer.startListening(new Intent());
+    shadowOf(getMainLooper()).idle();
+    assertThat(ShadowSpeechRecognizer.getLatestSpeechRecognizer())
+        .isSameInstanceAs(newSpeechRecognizer);
+  }
+
   private void startListening() {
     speechRecognizer.setRecognitionListener(listener);
     speechRecognizer.startListening(new Intent());

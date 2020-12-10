@@ -17,6 +17,7 @@ import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.speech.SpeechRecognizer;
 import android.widget.ListPopupWindow;
 import android.widget.PopupWindow;
 import android.widget.Toast;
@@ -52,6 +53,7 @@ public class ShadowApplication extends ShadowContextWrapper {
   private Object bluetoothAdapter = newInstanceOf("android.bluetooth.BluetoothAdapter");
   private PopupWindow latestPopupWindow;
   private ListPopupWindow latestListPopupWindow;
+  private SpeechRecognizer latestSpeechRecognizer;
   private UserManagerState userManagerState;
 
   /**
@@ -156,6 +158,14 @@ public class ShadowApplication extends ShadowContextWrapper {
    */
   public void setThrowInBindService(SecurityException e) {
     getShadowInstrumentation().setThrowInBindService(e);
+  }
+
+  /**
+   * Configures the ShadowApplication so that calls to bindService will call
+   * ServiceConnection#onServiceConnected before returning.
+   */
+  public void setBindServiceCallsOnServiceConnectedDirectly(boolean callDirectly) {
+    getShadowInstrumentation().setBindServiceCallsOnServiceConnectedDirectly(callDirectly);
   }
 
   public List<ServiceConnection> getUnboundServiceConnections() {
@@ -300,6 +310,14 @@ public class ShadowApplication extends ShadowContextWrapper {
 
   protected void setLatestListPopupWindow(ListPopupWindow latestListPopupWindow) {
     this.latestListPopupWindow = latestListPopupWindow;
+  }
+
+  protected void setLatestSpeechRecognizer(SpeechRecognizer latestSpeechRecognizer) {
+    this.latestSpeechRecognizer = latestSpeechRecognizer;
+  }
+
+  public SpeechRecognizer getLatestSpeechRecognizer() {
+    return latestSpeechRecognizer;
   }
 
   UserManagerState getUserManagerState() {
