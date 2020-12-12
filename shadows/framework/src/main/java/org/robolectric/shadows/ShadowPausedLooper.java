@@ -98,6 +98,7 @@ public final class ShadowPausedLooper extends ShadowLooper {
       nextScheduledTimeMs = getNextScheduledTaskTime().toMillis();
     }
     SystemClock.setCurrentTimeMillis(endingTimeMs);
+    idle();
   }
 
   @Override
