@@ -1,9 +1,15 @@
 package org.robolectric.internal.bytecode;
 
+import com.google.common.base.Strings;
+import java.io.IOException;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
@@ -29,12 +35,17 @@ import org.objectweb.asm.tree.VarInsnNode;
 
 public abstract class ClassInstrumentor {
   private static final String ROBO_INIT_METHOD_NAME = "$$robo$init";
+  // The directory where instrumented class files will be dumped
+  private static final String DUMP_CLASSES_PROPERTY = "robolectric.dumpClassesDirectory";
+  private static final AtomicInteger DUMP_CLASSES_COUNTER = new AtomicInteger();
   static final Type OBJECT_TYPE = Type.getType(Object.class);
   private static final ShadowImpl SHADOW_IMPL = new ShadowImpl();
   final Decorator decorator;
+  final String dumpClassesDirectory;
 
   protected ClassInstrumentor(Decorator decorator) {
     this.decorator = decorator;
+    this.dumpClassesDirectory = System.getProperty(DUMP_CLASSES_PROPERTY, "");
   }
 
   public MutableClass analyzeClass(
@@ -78,7 +89,19 @@ public abstract class ClassInstrumentor {
         };
     ClassRemapper visitor = new ClassRemapper(writer, remapper);
     classNode.accept(visitor);
-    return writer.toByteArray();
+
+    byte[] classBytes = writer.toByteArray();
+    if (!Strings.isNullOrEmpty(dumpClassesDirectory)) {
+      String outputClassName =
+          mutableClass.getName() + "-robo-instrumented-" + DUMP_CLASSES_COUNTER.getAndIncrement();
+      Path path = Paths.get(dumpClassesDirectory, outputClassName + ".class");
+      try {
+        Files.write(path, classBytes);
+      } catch (IOException e) {
+        throw new AssertionError(e);
+      }
+    }
+    return classBytes;
   }
 
   public byte[] instrument(byte[] origBytes, InstrumentationConfiguration config,
@@ -261,18 +284,6 @@ public abstract class ClassInstrumentor {
   private void instrumentConstructor(MutableClass mutableClass, MethodNode method) {
     makeMethodPrivate(method);
 
-    if (mutableClass.containsStubs) {
-      // method.instructions just throws a `stub!` exception, replace it with something anodyne...
-      method.instructions.clear();
-
-      RobolectricGeneratorAdapter generator = new RobolectricGeneratorAdapter(method);
-      generator.loadThis();
-      generator.visitMethodInsn(
-          Opcodes.INVOKESPECIAL, mutableClass.classNode.superName, "<init>", "()V", false);
-      generator.returnValue();
-      generator.endMethod();
-    }
-
     InsnList callSuper = extractCallToSuperConstructor(mutableClass, method);
     method.name = directMethodName(mutableClass, ShadowConstants.CONSTRUCTOR_METHOD_NAME);
     mutableClass.addMethod(redirectorMethod(mutableClass, method, ShadowConstants.CONSTRUCTOR_METHOD_NAME));
@@ -312,7 +323,9 @@ public abstract class ClassInstrumentor {
         case Opcodes.INVOKESPECIAL:
           MethodInsnNode mnode = (MethodInsnNode) node;
           if (mnode.owner.equals(mutableClass.internalClassName) || mnode.owner.equals(mutableClass.classNode.superName)) {
-            assert mnode.name.equals("<init>");
+            if (!"<init>".equals(mnode.name)) {
+              throw new AssertionError("Invalid MethodInsnNode name");
+            }
 
             // remove all instructions in the range startIndex..i, from aload_0 to invokespecial <init>
             while (startIndex <= i) {
