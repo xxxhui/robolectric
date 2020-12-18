@@ -1,9 +1,9 @@
 package org.robolectric.internal;
 
+import java.nio.charset.StandardCharsets;
 import org.robolectric.ApkLoader;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.TestLifecycle;
-import org.robolectric.android.fakes.RoboCharsets;
 import org.robolectric.android.fakes.RoboExtendedResponseCache;
 import org.robolectric.android.fakes.RoboResponseSource;
 import org.robolectric.annotation.Config;
@@ -97,7 +97,8 @@ public class AndroidConfigurer {
         .addClassNameTranslation(
             "java.net.ExtendedResponseCache", RoboExtendedResponseCache.class.getName())
         .addClassNameTranslation("java.net.ResponseSource", RoboResponseSource.class.getName())
-        .addClassNameTranslation("java.nio.charset.Charsets", RoboCharsets.class.getName())
+        // Needed for android.net.Uri in older SDK versions
+        .addClassNameTranslation("java.nio.charset.Charsets", StandardCharsets.class.getName())
         .addClassNameTranslation("java.lang.UnsafeByteSequence", Object.class.getName())
         .addClassNameTranslation("java.util.jar.StrictJarFile", Object.class.getName());
 
@@ -132,6 +133,7 @@ public class AndroidConfigurer {
     // fail on any usage due to DefaultConstructorMarker being inaccessible.
     builder.doNotInstrumentPackage("androidx.compose");
     builder.doNotInstrumentPackage("androidx.ui");
+    builder.doNotInstrumentPackage("androidx.fragment");
 
     builder.doNotInstrumentPackage("androidx.test");
     builder.doNotInstrumentPackage("android.support.test");
